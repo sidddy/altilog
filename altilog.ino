@@ -7,7 +7,9 @@
 #define ENABLE_SD
 
 #ifdef ENABLE_SD
-#include <SD.h>
+//#include <SD.h> //24854, 1271
+#include <SdFat.h> //22930, 1286
+SdFat SD;
 File dataFile;
 #endif
 
@@ -21,7 +23,7 @@ File dataFile;
 #define CMD_LIST "list"
 #define CMD_DOWNLOAD "download"
 #define CMD_ANALYZE "analyze"
-#define CMD_DELETE "delete"
+#define CMD_DELETE "delete all"
 #define CMD_AUTODEL "autodel"
 
 #define MAX_CMD_LEN 20
@@ -38,6 +40,7 @@ unsigned char mode = MODE_RECORD;
 char serialCmdString[MAX_CMD_LEN] = "";
 unsigned char serialCmdLen = 0;
 
+void(* resetFunc) (void) = 0;
 
 
 /***************************************************************************************
@@ -179,7 +182,7 @@ void setup() {
 
 #ifdef ENABLE_SD
   // see if the card is present and can be initialized:
-  if (!SD.begin(CHIP_SELECT)) {
+  if (!SD.begin(CHIP_SELECT, SPI_HALF_SPEED)) {
 #if defined(DEBUG)
     Serial.println(F("SD Card failed"));
 #endif //DEBUG
@@ -205,7 +208,7 @@ void setup() {
         
         if (!SD.exists(fname)) {
           dataFile = SD.open(fname, FILE_WRITE);
-#if defined(DEBUG) && 0
+#if defined(DEBUG)
           Serial.print(F("filename: "));
           Serial.println(fname);
 #endif
@@ -304,6 +307,10 @@ void serialEvent() {
         parseDataDirectory(2);
       } else if (strcmp(serialCmdString,CMD_DOWNLOAD) == 0) {
         parseDataDirectory(3);
+      } else if (strcmp(serialCmdString,CMD_DELETE) == 0) {
+        parseDataDirectory(4);
+      } else if (strcmp(serialCmdString,CMD_RESET) == 0) {
+        resetFunc();
       } else {
           Serial.println(F("Unknown command."));
       }
@@ -349,7 +356,9 @@ void parseDataDirectory(unsigned char mode) {
         }
         
         if (mode <=2) {
-          Serial.print(entry.name());
+          char fname[20];
+          entry.getName(fname, 20);
+          Serial.print(fname);
           if (!entry.isDirectory()) {
             char val[10];
             ltoa(entry.size(), val, 10);
@@ -373,13 +382,28 @@ void parseDataDirectory(unsigned char mode) {
             sendFile(&entry);
         }
         
+        if (mode == 4) {
+            char fn[20] = DATADIR;
+            char fn2[20];
+            entry.getName(fn2, 20);
+            strcat(fn, fn2);
+            Serial.print(fn2);
+            if (SD.remove(fn)) {
+                Serial.println(F(" DEL"));
+            } else {
+                Serial.println(F(" ERR"));
+            }
+        }
+        
         entry.close();
         
         if (mode == 2) {
           //delete mode!!
           if (max_alt < 1) { // increase here??
               char fn[20] = DATADIR;
-              strcat(fn, entry.name());
+              char fn2[20];
+              entry.getName(fn2, 20);
+              strcat(fn, fn2);
               if (SD.remove(fn)) {
                   Serial.print(F(" DEL"));
               } else {
@@ -449,8 +473,11 @@ void analyzeLog(File* logfile, long* dur, double* alt) {
 }
 
 void sendFile(File* logfile) {
+  char fname[20];
   Serial.print(F("## "));
-  Serial.println(logfile->name());
+  logfile->getName(fname, 20);
+  
+  Serial.println(fname);
   while (logfile->available()) {
       Serial.write(logfile->read());
   }
@@ -503,3 +530,4 @@ void beep(int duration) {
     digitalWrite(BEEP_PIN, LOW);
     delay(duration);
 }
+

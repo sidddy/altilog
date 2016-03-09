@@ -19,10 +19,11 @@ Software features:
 
 Notes:
 -------
-- BMP180 needs 3.3V, Arduino Nano only provides 5V. I use a voltage divider with 3 resistors to power the BMP180.
+- BMP180 needs 3.3V, Arduino Nano only provides 5V. I use a voltage divider with 2 resistors to power the BMP180.
 - Based on Sparkfun BMP180 and SdFat libraries
 - No RTC. All recorded times are relative to startup.
 
 Development Plans:
 ------------------
 - Linux client to download log files
+- potential integration with flightstab stabilisator for logging of current gyro & stick values (not sure yet if this is possible)

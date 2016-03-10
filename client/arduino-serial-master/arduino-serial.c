@@ -67,6 +67,7 @@ void usage(void)
     "  -S, --sendline=string      Send string with newline to Arduino\n"
     "  -i  --stdinput             Use standard input\n"
     "  -r, --receive              Receive string from Arduino & print it out\n"
+    "  -R, --receiveall           Receive multiple lines from Arduino & print it out, until timeout occurs\n"
     "  -n  --num=num              Send a number as a single byte\n"
     "  -F  --flush                Flush serial port buffers for fresh reading\n"
     "  -d  --delay=millis         Delay for specified milliseconds\n"

@@ -108,23 +108,23 @@ double getPressure_int()
                     return (P);
                 } else {
                     #if defined(DEBUG) && 0
-                    Serial.println("error retrieving pressure mmnt\n");
+                    Serial.print(F("error retrieving pressure mmnt\n"));
                     #endif
                 }
             } else {
                 #if defined(DEBUG) && 0
-                Serial.println("error starting pressure mmnt\n");
+                Serial.prinn(F("error starting pressure mmnt\n"));
                 #endif
             }
         } else {
             #if defined(DEBUG) && 0
-            Serial.println("error retrieving temperature mmnt\n");
+            Serial.print(F("error retrieving temperature mmnt\n"));
             #endif
         }
     }
     else {
         #if defined(DEBUG) && 0
-        Serial.println("error starting temperature mmnt\n");
+        Serial.print(F("error starting temperature mmnt\n"));
         #endif
     }
 }
@@ -144,7 +144,7 @@ void setup() {
     Serial.begin(115200);
     
     #if defined(DEBUG) && 0
-    Serial.println("REBOOT");
+    Serial.print(F("REBOOT\n"));
     #endif
     
     
@@ -152,13 +152,13 @@ void setup() {
     
     if (pressure.begin()) {
         #if defined(DEBUG) && 0
-        Serial.println("BMP180 init success");
+        Serial.print(F("BMP180 init success\n"));
         #endif
     } else {
         // Oops, something went wrong, this is usually a connection problem,
         // see the comments at the top of this sketch for the proper connections.
         #if defined(DEBUG)
-        Serial.println(F("BMP180 fail\n\n"));
+        Serial.print(F("BMP180 fail\n\n"));
         #endif
         while (1); // Pause forever.
     }
@@ -168,9 +168,9 @@ void setup() {
     baseline = getPressure(30);
     
     #if defined(DEBUG) && 0
-    Serial.print("baseline pressure: ");
+    Serial.print(F("baseline pressure: "));
     Serial.print(baseline);
-    Serial.println(" mb");
+    Serial.print(F(" mb\n"));
     
     Serial.print("Initializing SD card...");
     #endif
@@ -178,14 +178,14 @@ void setup() {
     // see if the card is present and can be initialized:
     if (!SD.begin(CHIP_SELECT, SPI_HALF_SPEED)) {
         #if defined(DEBUG)
-        Serial.println(F("SD Card failed"));
+        Serial.print(F("SD Card failed\n"));
         #endif //DEBUG
         // don't do anything more:
         return;
     }
     
     #if defined(DEBUG) && 0
-    Serial.println("card initialized.");
+    Serial.print(F("card initialized.\n"));
     #endif
     
     if (mode == MODE_RECORD) {
@@ -204,7 +204,8 @@ void setup() {
                 dataFile = SD.open(fname, FILE_WRITE);
                 #if defined(DEBUG)
                 Serial.print(F("filename: "));
-                Serial.println(fname);
+                Serial.print(fname);
+                Serial.print("\n");
                 #endif
                 break;
             }
@@ -247,13 +248,14 @@ void loop() {
         strcat(line, p_str);
         strcat(line, ",");
         strcat(line, alt_str);
+        strcat(line, "\n");
         
         #if defined(DEBUG) && 0
-        Serial.println(line);
+        Serial.print(line);
         #endif
         
         if (dataFile) {
-            dataFile.println(line);
+            dataFile.print(line);
             if (now - lastFlush > 5000) {
                 dataFile.flush();
                 lastFlush = now;
@@ -303,7 +305,7 @@ void serialEvent() {
             } else if (strcmp(serialCmdString,CMD_RESET) == 0) {
                 resetFunc();
             } else {
-                Serial.println(F("Unknown command."));
+                Serial.print(F("Unknown command.\n"));
             }
             serialCmdString[0] = '\0';
             serialCmdLen = 0;
@@ -326,9 +328,9 @@ void parseDataDirectory(unsigned char mode) {
     //        4 delete all
     File dir = SD.open("/altilog");
     if (mode == 0) {
-        Serial.println(F("FN\t\tSIZE"));
+        Serial.print(F("FN\t\tSIZE\n"));
     } else if (mode <= 2) {
-        Serial.println(F("FN\t\tSIZE\t\tDUR\t\tALT"));
+        Serial.print(F("FN\t\tSIZE\t\tDUR\t\tALT\n"));
     }
     
     if (dir) {
@@ -380,9 +382,9 @@ void parseDataDirectory(unsigned char mode) {
                 strcat(fn, fn2);
                 Serial.print(fn2);
                 if (SD.remove(fn)) {
-                    Serial.println(F(" DEL"));
+                    Serial.print(F(" DEL\n"));
                 } else {
-                    Serial.println(F(" ERR"));
+                    Serial.print(F(" ERR\n"));
                 }
             }
             
@@ -403,7 +405,7 @@ void parseDataDirectory(unsigned char mode) {
                 }
             }
             if (mode <=2) {
-                Serial.println();
+                Serial.print("\n");
             }
         }
         dir.close();
@@ -468,7 +470,9 @@ void sendFile(File* logfile) {
     Serial.print(F("## "));
     logfile->getName(fname, 20);
     
-    Serial.println(fname);
+    Serial.print(fname);
+    Serial.print("\n");
+
     while (logfile->available()) {
         Serial.write(logfile->read());
     }

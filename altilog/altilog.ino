@@ -103,25 +103,25 @@ double getPressure_int(double T)
     // If request is successful, the number of ms to wait is returned.
     // If request is unsuccessful, 0 is returned.
     
-
+    
     // Start a pressure measurement:
     // The parameter is the oversampling setting, from 0 to 3 (highest res, longest wait).
     // If request is successful, the number of ms to wait is returned.
-   // If request is unsuccessful, 0 is returned.
-            
-   status = pressure.startPressure(3);
-   if (status != 0)
-   {
-       // Wait for the measurement to complete:
-       delay(status);
-                
+    // If request is unsuccessful, 0 is returned.
+    
+    status = pressure.startPressure(3);
+    if (status != 0)
+    {
+        // Wait for the measurement to complete:
+        delay(status);
+        
         // Retrieve the completed pressure measurement:
         // Note that the measurement is stored in the variable P.
         // Use '&P' to provide the address of P.
         // Note also that the function requires the previous temperature measurement (T).
         // (If temperature is stable, you can do one temperature measurement for a number of pressure measurements.)
         // Function returns 1 if successful, 0 if failure.
-                
+        
         status = pressure.getPressure(P, T);
         if (status != 0)
         {
@@ -133,7 +133,7 @@ double getPressure_int(double T)
             return -100;
         }
     } else {
-        if defined(DEBUG) && 0
+        #if defined(DEBUG) && 0
         Serial.prinn(F("error starting pressure mmnt\n"));
         #endif
         return -101;
@@ -494,7 +494,7 @@ void sendFile(File* logfile) {
     
     Serial.print(fname);
     Serial.print("\n");
-
+    
     while (logfile->available()) {
         Serial.write(logfile->read());
     }

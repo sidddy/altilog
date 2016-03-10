@@ -4,6 +4,7 @@
 #define DATADIR "/altilog/"
 
 #define DEBUG
+//#define ENABLE_BEEP
 
 #include <SdFat.h> //22930, 1286
 SdFat SD;
@@ -47,16 +48,6 @@ void(* resetFunc) (void) = 0;
  ***************************************************************************************/
 
 
-double getPressure(int cnt, double T)
-{
-    double P = 0;
-    for (int i=0; i<cnt; i++) {
-        P = P + getPressure_int(T);
-    }
-    return P/cnt;
-}
-
-
 double getTemperature()
 {
     char status;
@@ -92,7 +83,7 @@ double getTemperature()
 }
 
 
-double getPressure_int(double T)
+double getPressure(double T)
 {
     char status;
     double P, p0, a;
@@ -175,15 +166,12 @@ void setup() {
     
     // Get the baseline pressure:
     
-    T = getTemperature();
-    if (T>-100) {
-        baseline = getPressure(30, T);
-    } else {
-        #if defined(DEBUG)
-        Serial.print(F("BMP180 temp fail\n\n"));
-        #endif
-        while (1); // Pause forever.
+    for (int i=0; i<30; i++) {
+        T = getTemperature();
+        baseline += getPressure(T);
     }
+    baseline = baseline / 30;
+    
     
     #if defined(DEBUG) && 0
     Serial.print(F("baseline pressure: "));
@@ -220,7 +208,7 @@ void setup() {
             
             if (!SD.exists(fname)) {
                 dataFile = SD.open(fname, FILE_WRITE);
-                #if defined(DEBUG)
+                #if defined(DEBUG) && 0
                 Serial.print(F("filename: "));
                 Serial.print(fname);
                 Serial.print("\n");
@@ -247,7 +235,7 @@ void loop() {
         
         // Get a new pressure reading:
         T = getTemperature();
-        P = getPressure(1, T);
+        P = getPressure(T);
         
         // Show the relative altitude difference between
         // the new reading and the baseline reading:
@@ -542,9 +530,14 @@ size_t readField(File* file, char* str, size_t size, char* delim) {
 }
 
 void beep(int duration) {
+#if defined(ENABLE_BEEP)
     digitalWrite(BEEP_PIN, HIGH);
+#endif
     delay(duration);
+#if defined(ENABLE_BEEP)
     digitalWrite(BEEP_PIN, LOW);
+#endif
     delay(duration);
+    
 }
 

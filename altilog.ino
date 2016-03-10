@@ -47,27 +47,20 @@ void(* resetFunc) (void) = 0;
  ***************************************************************************************/
 
 
-double getPressure(int cnt)
+double getPressure(int cnt, double T)
 {
     double P = 0;
     for (int i=0; i<cnt; i++) {
-        P = P + getPressure_int();
+        P = P + getPressure_int(T);
     }
     return P/cnt;
 }
 
 
-
-double getPressure_int()
+double getTemparature()
 {
     char status;
-    double T, P, p0, a;
-    
-    // You must first get a temperature measurement to perform a pressure reading.
-    
-    // Start a temperature measurement:
-    // If request is successful, the number of ms to wait is returned.
-    // If request is unsuccessful, 0 is returned.
+    double T;
     
     status = pressure.startTemperature();
     if (status != 0)
@@ -82,54 +75,70 @@ double getPressure_int()
         // Function returns 1 if successful, 0 if failure.
         
         status = pressure.getTemperature(T);
-        if (status != 0)
-        {
-            // Start a pressure measurement:
-            // The parameter is the oversampling setting, from 0 to 3 (highest res, longest wait).
-            // If request is successful, the number of ms to wait is returned.
-            // If request is unsuccessful, 0 is returned.
-            
-            status = pressure.startPressure(3);
-            if (status != 0)
-            {
-                // Wait for the measurement to complete:
-                delay(status);
-                
-                // Retrieve the completed pressure measurement:
-                // Note that the measurement is stored in the variable P.
-                // Use '&P' to provide the address of P.
-                // Note also that the function requires the previous temperature measurement (T).
-                // (If temperature is stable, you can do one temperature measurement for a number of pressure measurements.)
-                // Function returns 1 if successful, 0 if failure.
-                
-                status = pressure.getPressure(P, T);
-                if (status != 0)
-                {
-                    return (P);
-                } else {
-                    #if defined(DEBUG) && 0
-                    Serial.print(F("error retrieving pressure mmnt\n"));
-                    #endif
-                }
-            } else {
-                #if defined(DEBUG) && 0
-                Serial.prinn(F("error starting pressure mmnt\n"));
-                #endif
-            }
+        if (status != 0) {
+            return T;
         } else {
             #if defined(DEBUG) && 0
             Serial.print(F("error retrieving temperature mmnt\n"));
             #endif
+            return -100;
         }
-    }
-    else {
+    } else {
         #if defined(DEBUG) && 0
         Serial.print(F("error starting temperature mmnt\n"));
         #endif
+        return -101;
     }
 }
 
 
+double getPressure_int(double T)
+{
+    char status;
+    double P, p0, a;
+    
+    // You must first get a temperature measurement to perform a pressure reading.
+    
+    // Start a temperature measurement:
+    // If request is successful, the number of ms to wait is returned.
+    // If request is unsuccessful, 0 is returned.
+    
+
+    // Start a pressure measurement:
+    // The parameter is the oversampling setting, from 0 to 3 (highest res, longest wait).
+    // If request is successful, the number of ms to wait is returned.
+   // If request is unsuccessful, 0 is returned.
+            
+   status = pressure.startPressure(3);
+   if (status != 0)
+   {
+       // Wait for the measurement to complete:
+       delay(status);
+                
+        // Retrieve the completed pressure measurement:
+        // Note that the measurement is stored in the variable P.
+        // Use '&P' to provide the address of P.
+        // Note also that the function requires the previous temperature measurement (T).
+        // (If temperature is stable, you can do one temperature measurement for a number of pressure measurements.)
+        // Function returns 1 if successful, 0 if failure.
+                
+        status = pressure.getPressure(P, T);
+        if (status != 0)
+        {
+            return (P);
+        } else {
+            #if defined(DEBUG) && 0
+            Serial.print(F("error retrieving pressure mmnt\n"));
+            #endif
+            return -100;
+        }
+    } else {
+        if defined(DEBUG) && 0
+        Serial.prinn(F("error starting pressure mmnt\n"));
+        #endif
+        return -101;
+    }
+}
 
 
 /***************************************************************************************
@@ -141,6 +150,7 @@ double getPressure_int()
 
 
 void setup() {
+    double T;
     Serial.begin(115200);
     
     #if defined(DEBUG) && 0
@@ -165,7 +175,15 @@ void setup() {
     
     // Get the baseline pressure:
     
-    baseline = getPressure(30);
+    T = getTemperature();
+    if (T>-100) {
+        baseline = getPressure(30);
+    } else {
+        #if defined(DEBUG)
+        Serial.print(F("BMP180 temp fail\n\n"));
+        #endif
+        while (1); // Pause forever.
+    }
     
     #if defined(DEBUG) && 0
     Serial.print(F("baseline pressure: "));
@@ -221,16 +239,15 @@ void setup() {
 void loop() {
     if (mode == MODE_RECORD) {
         // put your main code here, to run repeatedly:
-        double a, P;
+        double a, P, T;
         char line[100] = "";
-        char alt_str[10];
-        char p_str[10];
-        char time_str[10];
+        char tmp_str[15];
+        
         unsigned long now;
         
         // Get a new pressure reading:
-        
-        P = getPressure(1);
+        T = getTemparature();
+        P = getPressure(1, T);
         
         // Show the relative altitude difference between
         // the new reading and the baseline reading:
@@ -238,19 +255,24 @@ void loop() {
         a = pressure.altitude(P, baseline);
         now = millis() - time_offset;
         
-        // format; Milliseconds, pressure, altitude
-        dtostrf(P, 4, 2, p_str);
-        dtostrf(a, 4, 2, alt_str);
-        ltoa(now, time_str, 10);
+        // format; Milliseconds, pressure, altitude, temperature
+        ltoa(now, tmp_str, 15);
+        strcat(line, tmp_str);
+        strcat(line, ",");
         
-        strcat(line, time_str);
+        dtostrf(P, 4, 2, tmp_str);
+        strcat(line, tmp_str);
         strcat(line, ",");
-        strcat(line, p_str);
+        
+        dtostrf(a, 4, 2, tmp_str);
+        strcat(line, tmp_str);
         strcat(line, ",");
-        strcat(line, alt_str);
+        
+        dtostrf(T, 4, 2, tmp_str);
+        strcat(line, tmp_str);
         strcat(line, "\n");
         
-        #if defined(DEBUG) && 0
+        #if defined(DEBUG)
         Serial.print(line);
         #endif
         

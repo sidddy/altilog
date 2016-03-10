@@ -57,7 +57,7 @@ double getPressure(int cnt, double T)
 }
 
 
-double getTemparature()
+double getTemperature()
 {
     char status;
     double T;
@@ -177,7 +177,7 @@ void setup() {
     
     T = getTemperature();
     if (T>-100) {
-        baseline = getPressure(30);
+        baseline = getPressure(30, T);
     } else {
         #if defined(DEBUG)
         Serial.print(F("BMP180 temp fail\n\n"));
@@ -246,7 +246,7 @@ void loop() {
         unsigned long now;
         
         // Get a new pressure reading:
-        T = getTemparature();
+        T = getTemperature();
         P = getPressure(1, T);
         
         // Show the relative altitude difference between
@@ -256,7 +256,7 @@ void loop() {
         now = millis() - time_offset;
         
         // format; Milliseconds, pressure, altitude, temperature
-        ltoa(now, tmp_str, 15);
+        ltoa(now, tmp_str, 10);
         strcat(line, tmp_str);
         strcat(line, ",");
         
@@ -272,7 +272,7 @@ void loop() {
         strcat(line, tmp_str);
         strcat(line, "\n");
         
-        #if defined(DEBUG)
+        #if defined(DEBUG) && 0
         Serial.print(line);
         #endif
         

@@ -4,6 +4,7 @@
 #define DATADIR "/altilog/"
 
 #define DEBUG
+//#define ENABLE_BEEP
 
 #include <SdFat.h> //22930, 1286
 SdFat SD;
@@ -47,27 +48,10 @@ void(* resetFunc) (void) = 0;
  ***************************************************************************************/
 
 
-double getPressure(int cnt)
-{
-    double P = 0;
-    for (int i=0; i<cnt; i++) {
-        P = P + getPressure_int();
-    }
-    return P/cnt;
-}
-
-
-
-double getPressure_int()
+double getTemperature()
 {
     char status;
-    double T, P, p0, a;
-    
-    // You must first get a temperature measurement to perform a pressure reading.
-    
-    // Start a temperature measurement:
-    // If request is successful, the number of ms to wait is returned.
-    // If request is unsuccessful, 0 is returned.
+    double T;
     
     status = pressure.startTemperature();
     if (status != 0)
@@ -82,54 +66,70 @@ double getPressure_int()
         // Function returns 1 if successful, 0 if failure.
         
         status = pressure.getTemperature(T);
-        if (status != 0)
-        {
-            // Start a pressure measurement:
-            // The parameter is the oversampling setting, from 0 to 3 (highest res, longest wait).
-            // If request is successful, the number of ms to wait is returned.
-            // If request is unsuccessful, 0 is returned.
-            
-            status = pressure.startPressure(3);
-            if (status != 0)
-            {
-                // Wait for the measurement to complete:
-                delay(status);
-                
-                // Retrieve the completed pressure measurement:
-                // Note that the measurement is stored in the variable P.
-                // Use '&P' to provide the address of P.
-                // Note also that the function requires the previous temperature measurement (T).
-                // (If temperature is stable, you can do one temperature measurement for a number of pressure measurements.)
-                // Function returns 1 if successful, 0 if failure.
-                
-                status = pressure.getPressure(P, T);
-                if (status != 0)
-                {
-                    return (P);
-                } else {
-                    #if defined(DEBUG) && 0
-                    Serial.println("error retrieving pressure mmnt\n");
-                    #endif
-                }
-            } else {
-                #if defined(DEBUG) && 0
-                Serial.println("error starting pressure mmnt\n");
-                #endif
-            }
+        if (status != 0) {
+            return T;
         } else {
             #if defined(DEBUG) && 0
-            Serial.println("error retrieving temperature mmnt\n");
+            Serial.print(F("error retrieving temperature mmnt\n"));
             #endif
+            return -100;
         }
-    }
-    else {
+    } else {
         #if defined(DEBUG) && 0
-        Serial.println("error starting temperature mmnt\n");
+        Serial.print(F("error starting temperature mmnt\n"));
         #endif
+        return -101;
     }
 }
 
 
+double getPressure(double T)
+{
+    char status;
+    double P, p0, a;
+    
+    // You must first get a temperature measurement to perform a pressure reading.
+    
+    // Start a temperature measurement:
+    // If request is successful, the number of ms to wait is returned.
+    // If request is unsuccessful, 0 is returned.
+    
+    
+    // Start a pressure measurement:
+    // The parameter is the oversampling setting, from 0 to 3 (highest res, longest wait).
+    // If request is successful, the number of ms to wait is returned.
+    // If request is unsuccessful, 0 is returned.
+    
+    status = pressure.startPressure(3);
+    if (status != 0)
+    {
+        // Wait for the measurement to complete:
+        delay(status);
+        
+        // Retrieve the completed pressure measurement:
+        // Note that the measurement is stored in the variable P.
+        // Use '&P' to provide the address of P.
+        // Note also that the function requires the previous temperature measurement (T).
+        // (If temperature is stable, you can do one temperature measurement for a number of pressure measurements.)
+        // Function returns 1 if successful, 0 if failure.
+        
+        status = pressure.getPressure(P, T);
+        if (status != 0)
+        {
+            return (P);
+        } else {
+            #if defined(DEBUG) && 0
+            Serial.print(F("error retrieving pressure mmnt\n"));
+            #endif
+            return -100;
+        }
+    } else {
+        #if defined(DEBUG) && 0
+        Serial.prinn(F("error starting pressure mmnt\n"));
+        #endif
+        return -101;
+    }
+}
 
 
 /***************************************************************************************
@@ -141,10 +141,11 @@ double getPressure_int()
 
 
 void setup() {
+    double T;
     Serial.begin(115200);
     
     #if defined(DEBUG) && 0
-    Serial.println("REBOOT");
+    Serial.print(F("REBOOT\n"));
     #endif
     
     
@@ -152,25 +153,30 @@ void setup() {
     
     if (pressure.begin()) {
         #if defined(DEBUG) && 0
-        Serial.println("BMP180 init success");
+        Serial.print(F("BMP180 init success\n"));
         #endif
     } else {
         // Oops, something went wrong, this is usually a connection problem,
         // see the comments at the top of this sketch for the proper connections.
         #if defined(DEBUG)
-        Serial.println(F("BMP180 fail\n\n"));
+        Serial.print(F("BMP180 fail\n\n"));
         #endif
         while (1); // Pause forever.
     }
     
     // Get the baseline pressure:
     
-    baseline = getPressure(30);
+    for (int i=0; i<30; i++) {
+        T = getTemperature();
+        baseline += getPressure(T);
+    }
+    baseline = baseline / 30;
+    
     
     #if defined(DEBUG) && 0
-    Serial.print("baseline pressure: ");
+    Serial.print(F("baseline pressure: "));
     Serial.print(baseline);
-    Serial.println(" mb");
+    Serial.print(F(" mb\n"));
     
     Serial.print("Initializing SD card...");
     #endif
@@ -178,14 +184,14 @@ void setup() {
     // see if the card is present and can be initialized:
     if (!SD.begin(CHIP_SELECT, SPI_HALF_SPEED)) {
         #if defined(DEBUG)
-        Serial.println(F("SD Card failed"));
+        Serial.print(F("SD Card failed\n"));
         #endif //DEBUG
         // don't do anything more:
         return;
     }
     
     #if defined(DEBUG) && 0
-    Serial.println("card initialized.");
+    Serial.print(F("card initialized.\n"));
     #endif
     
     if (mode == MODE_RECORD) {
@@ -202,9 +208,10 @@ void setup() {
             
             if (!SD.exists(fname)) {
                 dataFile = SD.open(fname, FILE_WRITE);
-                #if defined(DEBUG)
+                #if defined(DEBUG) && 0
                 Serial.print(F("filename: "));
-                Serial.println(fname);
+                Serial.print(fname);
+                Serial.print("\n");
                 #endif
                 break;
             }
@@ -220,16 +227,15 @@ void setup() {
 void loop() {
     if (mode == MODE_RECORD) {
         // put your main code here, to run repeatedly:
-        double a, P;
+        double a, P, T;
         char line[100] = "";
-        char alt_str[10];
-        char p_str[10];
-        char time_str[10];
+        char tmp_str[15];
+        
         unsigned long now;
         
         // Get a new pressure reading:
-        
-        P = getPressure(1);
+        T = getTemperature();
+        P = getPressure(T);
         
         // Show the relative altitude difference between
         // the new reading and the baseline reading:
@@ -237,23 +243,29 @@ void loop() {
         a = pressure.altitude(P, baseline);
         now = millis() - time_offset;
         
-        // format; Milliseconds, pressure, altitude
-        dtostrf(P, 4, 2, p_str);
-        dtostrf(a, 4, 2, alt_str);
-        ltoa(now, time_str, 10);
+        // format; Milliseconds, pressure, altitude, temperature
+        ltoa(now, tmp_str, 10);
+        strcat(line, tmp_str);
+        strcat(line, ",");
         
-        strcat(line, time_str);
+        dtostrf(P, 4, 2, tmp_str);
+        strcat(line, tmp_str);
         strcat(line, ",");
-        strcat(line, p_str);
+        
+        dtostrf(a, 4, 2, tmp_str);
+        strcat(line, tmp_str);
         strcat(line, ",");
-        strcat(line, alt_str);
+        
+        dtostrf(T, 4, 2, tmp_str);
+        strcat(line, tmp_str);
+        strcat(line, "\n");
         
         #if defined(DEBUG) && 0
-        Serial.println(line);
+        Serial.print(line);
         #endif
         
         if (dataFile) {
-            dataFile.println(line);
+            dataFile.print(line);
             if (now - lastFlush > 5000) {
                 dataFile.flush();
                 lastFlush = now;
@@ -303,7 +315,7 @@ void serialEvent() {
             } else if (strcmp(serialCmdString,CMD_RESET) == 0) {
                 resetFunc();
             } else {
-                Serial.println(F("Unknown command."));
+                Serial.print(F("Unknown command.\n"));
             }
             serialCmdString[0] = '\0';
             serialCmdLen = 0;
@@ -326,9 +338,9 @@ void parseDataDirectory(unsigned char mode) {
     //        4 delete all
     File dir = SD.open("/altilog");
     if (mode == 0) {
-        Serial.println(F("FN\t\tSIZE"));
+        Serial.print(F("FN\t\tSIZE\n"));
     } else if (mode <= 2) {
-        Serial.println(F("FN\t\tSIZE\t\tDUR\t\tALT"));
+        Serial.print(F("FN\t\tSIZE\t\tDUR\t\tALT\n"));
     }
     
     if (dir) {
@@ -380,9 +392,9 @@ void parseDataDirectory(unsigned char mode) {
                 strcat(fn, fn2);
                 Serial.print(fn2);
                 if (SD.remove(fn)) {
-                    Serial.println(F(" DEL"));
+                    Serial.print(F(" DEL\n"));
                 } else {
-                    Serial.println(F(" ERR"));
+                    Serial.print(F(" ERR\n"));
                 }
             }
             
@@ -403,7 +415,7 @@ void parseDataDirectory(unsigned char mode) {
                 }
             }
             if (mode <=2) {
-                Serial.println();
+                Serial.print("\n");
             }
         }
         dir.close();
@@ -468,7 +480,9 @@ void sendFile(File* logfile) {
     Serial.print(F("## "));
     logfile->getName(fname, 20);
     
-    Serial.println(fname);
+    Serial.print(fname);
+    Serial.print("\n");
+    
     while (logfile->available()) {
         Serial.write(logfile->read());
     }
@@ -516,9 +530,14 @@ size_t readField(File* file, char* str, size_t size, char* delim) {
 }
 
 void beep(int duration) {
+#if defined(ENABLE_BEEP)
     digitalWrite(BEEP_PIN, HIGH);
+#endif
     delay(duration);
+#if defined(ENABLE_BEEP)
     digitalWrite(BEEP_PIN, LOW);
+#endif
     delay(duration);
+    
 }
 
